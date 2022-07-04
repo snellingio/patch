@@ -1,3 +1,5 @@
+import {patchElement} from "./patch";
+
 function domLoaded() {
     console.log('dom loaded')
 }
@@ -37,8 +39,10 @@ async function click(event: MouseEvent) {
     const element = document.createElement("html")
     element.innerHTML = html
 
-    document.body.innerHTML = element.querySelector("body").innerHTML
-    //nanomorph(document.body, element.querySelector("body"))
+    let body = element.querySelector("body")
+    if (body) {
+        patchElement(document.body, body)
+    }
 
 }
 
