@@ -64,10 +64,10 @@ export default function patch(
         root = patchNode(root, rootNodeType, to, toNodeType) as HTMLElement
     }
 
-    return patchElement(root as HTMLElement, to as HTMLElement, options)
+    return patchElement(root as HTMLElement, to as HTMLElement)
 }
 
-export function patchElement(root: HTMLElement, to: HTMLElement, options: Partial<PatchOptions> = {}): HTMLElement {
+export function patchElement(root: HTMLElement, to: HTMLElement): HTMLElement {
     // Inputs, textareas, and templates are special cases.
     // Inputs and textareas because of IDL attributes not being compared correctly
     // Templates because nested templates are not supported
@@ -158,7 +158,7 @@ export function patchElement(root: HTMLElement, to: HTMLElement, options: Partia
             }
 
             if (a.hasChildNodes()) {
-                a = patchElement(a as HTMLElement, b as HTMLElement, options) as Node
+                a = patchElement(a as HTMLElement, b as HTMLElement) as Node
             }
         }
 
@@ -187,7 +187,7 @@ function patchNode(a: Node, aNodeType: number, b: Node, bNodeType: number): Node
             a = tag
         }
 
-        // I realize this code is super ugly. I'm sorry. It compiles out.
+        // I realize this code is hideous. I'm sorry. It compiles out.
         if (aNodeName === 'INPUT') {
             if ((a as HTMLInputElement).value !== (b as HTMLInputElement).value) {
                 (a as HTMLInputElement).value = (b as HTMLInputElement).value
@@ -238,6 +238,7 @@ function patchNode(a: Node, aNodeType: number, b: Node, bNodeType: number): Node
         return text
     }
 
+    // @TODO: Can we get rid of the clone node ?
     a.parentNode?.replaceChild(b.cloneNode(true), a)
     return a
 }
