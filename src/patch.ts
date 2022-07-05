@@ -2,6 +2,7 @@ const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const DOCUMENT_FRAGMENT_NODE = 11;
+let keys: string[] = ['id'];
 
 type PatchOptions = {
     keys: string[],
@@ -21,6 +22,9 @@ export default function patch(
         keys: ['id'],
         childrenOnly: false,
     }, options) as PatchOptions
+
+    //@ts-ignore
+    keys = options.keys
 
     let rootNodeType = root.nodeType
 
@@ -64,10 +68,13 @@ export default function patch(
 }
 
 export function patchElement(root: HTMLElement, to: HTMLElement, options: Partial<PatchOptions> = {}): HTMLElement {
+    // Inputs, textareas, and templates are special cases.
+    // Inputs and textareas because of IDL attributes not being compared correctly
+    // Templates because nested templates are not supported
     if (root.isEqualNode(to)) {
         let name = root.nodeName
-        if (name !== 'INPUT' && name !== 'TEXTAREA') {
-            if (root.querySelector('input, textarea') === null) {
+        if (name !== 'INPUT' && name !== 'TEXTAREA' && name !== 'TEMPLATE') {
+            if (root.querySelector('input, textarea, template') === null) {
                 return root
             }
         }
@@ -109,7 +116,7 @@ export function patchElement(root: HTMLElement, to: HTMLElement, options: Partia
 
         if (aIsElement || bIsElement) {
             // @ts-ignore
-            for (let key of ['id']) {
+            for (let key of keys) {
                 let aValue = aIsElement ? (a as HTMLElement).getAttribute(key) : null
                 let bValue = bIsElement ? (b as HTMLElement).getAttribute(key) : null
 
@@ -162,10 +169,12 @@ export function patchElement(root: HTMLElement, to: HTMLElement, options: Partia
 }
 
 function patchNode(a: Node, aNodeType: number, b: Node, bNodeType: number): Node {
+    // You might be wondering why we're including the nodeType here.
+    // It's much faster to not read from it unnecessarily
     let aNodeName = a.nodeName
 
     if (a.isEqualNode(b)) {
-        if (aNodeName !== 'INPUT' && aNodeName !== 'TEXTAREA') {
+        if (aNodeName !== 'INPUT' && aNodeName !== 'TEXTAREA' && aNodeName !== 'TEMPLATE') {
             return a
         }
     }
@@ -178,32 +187,33 @@ function patchNode(a: Node, aNodeType: number, b: Node, bNodeType: number): Node
             a = tag
         }
 
+        // I realize this code is super ugly. I'm sorry. It compiles out.
         if (aNodeName === 'INPUT') {
-            if (a.value !== b.value) {
-                a.value = b.value
+            if ((a as HTMLInputElement).value !== (b as HTMLInputElement).value) {
+                (a as HTMLInputElement).value = (b as HTMLInputElement).value
             }
-            if (a.checked !== b.checked) {
-                a.checked = b.checked
-                if (a.checked) {
-                    a.setAttribute('checked', '')
-                    b.setAttribute('checked', '')
+            if ((a as HTMLInputElement).checked !== (b as HTMLInputElement).checked) {
+                (a as HTMLInputElement).checked = (b as HTMLInputElement).checked
+                if ((a as HTMLInputElement).checked) {
+                    (a as HTMLInputElement).setAttribute('checked', '');
+                    (b as HTMLInputElement).setAttribute('checked', '')
                 }
             }
-            if (a.disabled !== b.disabled) {
-                a.disabled = b.disabled
-                if (a.disabled) {
-                    a.setAttribute('disabled', '')
-                    b.setAttribute('disabled', '')
+            if ((a as HTMLInputElement).disabled !== (b as HTMLInputElement).disabled) {
+                (a as HTMLInputElement).disabled = (b as HTMLInputElement).disabled
+                if ((a as HTMLInputElement).disabled) {
+                    (a as HTMLInputElement).setAttribute('disabled', '');
+                    (b as HTMLInputElement).setAttribute('disabled', '')
                 }
             }
         }
 
         if (aNodeName === 'TEXTAREA') {
-            if (a.value !== b.value) {
-                a.value = b.value
+            if ((a as HTMLTextAreaElement).value !== (b as HTMLTextAreaElement).value) {
+                (a as HTMLTextAreaElement).value = (b as HTMLTextAreaElement).value
             }
-            if (a.disabled !== b.disabled) {
-                a.disabled = b.disabled
+            if ((a as HTMLTextAreaElement).disabled !== (b as HTMLTextAreaElement).disabled) {
+                (a as HTMLTextAreaElement).disabled = (b as HTMLTextAreaElement).disabled
             }
         }
 
@@ -251,6 +261,9 @@ function patchElementAttributes(a: HTMLElement, b: HTMLElement): HTMLElement {
         const value = bAttributes[i].value
 
         if (a.getAttribute(name) !== value) {
+            // This is inspired by Laravel Livewire's ability to update attributes
+            // without encountering InvalidCharacterError's when using the `@` symbol.
+            // Specifically for Alpine / Petite-Vue bindings.
             try {
                 Element.prototype.setAttribute.call(a, name, value)
             } catch (e) {
